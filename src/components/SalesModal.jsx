@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 
 export default function SalesModal({
   isOpen,
@@ -8,32 +8,41 @@ export default function SalesModal({
   supabase,
   onSaleSuccess
 }) {
-  const [quantity, setQuantity] = useState(1)
+  const [quantity, setQuantity] = useState("")
   const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    if (isOpen) {
+      setQuantity("1")
+    }
+  }, [isOpen])
 
   if (!isOpen || !product) return null
 
   const handleConfirm = async () => {
-  if (quantity <= 0) return
+    const qty = Number(quantity)
 
-  setLoading(true)
+    if (!qty || qty <= 0) return
 
-  const { error } = await supabase.rpc("sell_product", {
-    p_account_id: account.id,
-    p_product_id: product.id,
-    p_quantity: quantity
-  })
+    setLoading(true)
 
-  if (error) {
-    alert(error.message)
+    const { error } = await supabase.rpc("sell_product", {
+      p_account_id: account.id,
+      p_product_id: product.id,
+      p_quantity: qty
+    })
+
+    if (error) {
+      alert(error.message)
+      setLoading(false)
+      return
+    }
+
+    onSaleSuccess()
+    onClose()
+    setQuantity("")
     setLoading(false)
-    return
   }
-
-  onSaleSuccess()
-  onClose()
-  setLoading(false)
-}
 
   return (
     <div className="modal-overlay">
@@ -47,7 +56,7 @@ export default function SalesModal({
           min="1"
           max={product.stock}
           value={quantity}
-          onChange={(e) => setQuantity(Number(e.target.value))}
+          onChange={(e) => setQuantity(e.target.value)}
         />
 
         <div style={{ marginTop: 10 }}>
