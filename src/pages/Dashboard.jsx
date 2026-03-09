@@ -1,12 +1,25 @@
 import { useEffect, useState, useMemo } from "react"
-import { supabase } from "../lib/supabase"
 import { useAuth } from "../context/AuthContext"
 import { useNavigate } from "react-router-dom"
+
 import ProductForm from "../components/ProductForm"
 import SalesModal from "../components/SalesModal"
 import StatsCards from "../components/StatsCards"
 import SalesTable from "../components/SalesTable"
 import EditProductModal from "../components/EditProductModal"
+
+import { supabase } from "../lib/supabase"
+
+import { getAccountByOwner } from "../services/accountService"
+import {
+  getProducts,
+  createProduct,
+  updateProduct,
+  deleteProduct
+} from "../services/productService"
+
+import { getSales } from "../services/salesService"
+
 import "./dashboard.css"
 
 const ITEMS_PER_PAGE = 5
@@ -32,7 +45,17 @@ const Dashboard = () => {
   const [searchTerm, setSearchTerm] = useState("")
   const [stockFilter, setStockFilter] = useState("all")
   const [currentPage, setCurrentPage] = useState(1)
+
   const [editModalOpen, setEditModalOpen] = useState(false)
+
+  const [theme, setTheme] = useState(
+    localStorage.getItem("theme") || "light"
+  )
+
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme)
+    localStorage.setItem("theme", theme)
+  }, [theme])
 
   // =========================
   // FECHA LOCAL
@@ -44,50 +67,34 @@ const Dashboard = () => {
     const local = new Date(now.getTime() - offset * 60000)
     return local.toISOString().split("T")[0]
   }
+
   const today = getLocalDate()
+
   const [startDate, setStartDate] = useState(today)
   const [endDate, setEndDate] = useState(today)
-
-  // =========================
-  // TEMA
-  // =========================
-  const [theme, setTheme] = useState(
-    localStorage.getItem("theme") || "light"
-  )
-  useEffect(() => {
-    document.documentElement.setAttribute("data-theme", theme)
-    localStorage.setItem("theme", theme)
-  }, [theme])
 
   // =========================
   // CARGAR DATOS
   // =========================
 
   const fetchInitialData = async () => {
+
     if (!user) return
+
     try {
-      const { data: accountData, error: accountError } = await supabase
-        .from("accounts")
-        .select("*")
-        .eq("owner_id", user.id)
-        .single()
-      if (accountError || !accountData) {
+
+      const accountData = await getAccountByOwner(user.id)
+
+      if (!accountData) {
         navigate("/onboarding")
         return
       }
+
       setAccount(accountData)
 
-      // PRODUCTOS
-
-      const { data: productsData } = await supabase
-        .from("products")
-        .select("*")
-        .eq("account_id", accountData.id)
-        .order("created_at", { ascending: false })
+      const productsData = await getProducts(accountData.id)
 
       setProducts(productsData || [])
-
-      // CATEGORIAS
 
       const { data: categoriesData } = await supabase
         .from("categories")
@@ -97,34 +104,38 @@ const Dashboard = () => {
 
       setCategories(categoriesData || [])
 
-      // VENTAS
+      const salesData = await getSales(accountData.id, today, today)
 
-      fetchSales(accountData.id, today, today)
+      setSales(salesData || [])
+
       setLoading(false)
+
     } catch (err) {
+
       console.error("Error cargando datos:", err)
       setLoading(false)
+
     }
+
   }
 
   // =========================
   // VENTAS
   // =========================
 
-  const fetchSales = async (accountId, from, to) => {
+  const fetchSalesData = async (accountId, from, to) => {
 
-    let query = supabase
-      .from("sales")
-      .select("*")
-      .eq("account_id", accountId)
-      .order("created_at", { ascending: false })
+    try {
 
-    if (from) query = query.gte("created_at", from)
-    if (to) query = query.lte("created_at", to + "T23:59:59")
+      const salesData = await getSales(accountId, from, to)
 
-    const { data } = await query
+      setSales(salesData || [])
 
-    setSales(data || [])
+    } catch (err) {
+
+      console.error("Error cargando ventas:", err)
+
+    }
 
   }
 
@@ -133,7 +144,11 @@ const Dashboard = () => {
   }, [user])
 
   useEffect(() => {
-    if (account) fetchSales(account.id, startDate, endDate)
+
+    if (account) {
+      fetchSalesData(account.id, startDate, endDate)
+    }
+
   }, [startDate, endDate])
 
   // =========================
@@ -141,16 +156,24 @@ const Dashboard = () => {
   // =========================
 
   const filteredProducts = useMemo(() => {
+
     let result = [...products]
+
     if (searchTerm) {
+
       result = result.filter(p =>
         p.name.toLowerCase().includes(searchTerm.toLowerCase())
       )
+
     }
-    if (stockFilter === "low")
+
+    if (stockFilter === "low") {
       result = result.filter(p => p.stock <= p.min_stock)
-    if (stockFilter === "out")
+    }
+
+    if (stockFilter === "out") {
       result = result.filter(p => p.stock === 0)
+    }
 
     return result
 
@@ -175,53 +198,67 @@ const Dashboard = () => {
   // =========================
 
   const handleCreate = async (data) => {
-    const { data: newProduct, error } = await supabase
-      .from("products")
-      .insert([{ ...data, account_id: account.id }])
-      .select()
-      .single()
 
-    if (error) {
+    try {
+
+      const newProduct = await createProduct({
+        ...data,
+        account_id: account.id
+      })
+
+      setProducts(prev => [newProduct, ...prev])
+
+    } catch {
+
       alert("Error creando producto")
-      return
+
     }
 
-    setProducts(prev => [newProduct, ...prev])
   }
 
   const handleUpdate = async (data) => {
-  const { error } = await supabase
-    .from("products")
-    .update(data)
-    .eq("id", editingProduct.id)
 
-  if (error) {
-    alert("Error actualizando producto")
-    return
+    try {
+
+      await updateProduct(editingProduct.id, data)
+
+      setProducts(prev =>
+        prev.map(p =>
+          p.id === editingProduct.id
+            ? { ...p, ...data }
+            : p
+        )
+      )
+
+      setEditingProduct(null)
+      setEditModalOpen(false)
+
+    } catch {
+
+      alert("Error actualizando producto")
+
+    }
+
   }
 
-  setProducts(prev =>
-    prev.map(p =>
-      p.id === editingProduct.id
-        ? { ...p, ...data }
-        : p
-    )
-  )
-
-  setEditingProduct(null)
-  setEditModalOpen(false)
-}
-
   const handleDelete = async (id) => {
-    if (!window.confirm("¿Eliminar producto?")) return
-    await supabase
-      .from("products")
-      .delete()
-      .eq("id", id)
 
-    setProducts(prev =>
-      prev.filter(p => p.id !== id)
-    )
+    if (!window.confirm("¿Eliminar producto?")) return
+
+    try {
+
+      await deleteProduct(id)
+
+      setProducts(prev =>
+        prev.filter(p => p.id !== id)
+      )
+
+    } catch {
+
+      alert("Error eliminando producto")
+
+    }
+
   }
 
   // =========================
@@ -229,16 +266,17 @@ const Dashboard = () => {
   // =========================
 
   const handleLogout = async () => {
+
     await supabase.auth.signOut()
+
     navigate("/login")
+
   }
 
   if (loading) return <p>Cargando...</p>
 
   return (
     <div className="layout">
-
-      {/* SIDEBAR */}
 
       <aside className="sidebar">
 
@@ -274,13 +312,12 @@ const Dashboard = () => {
 
       </aside>
 
-      {/* CONTENIDO */}
-
       <main className="content">
 
         {activeView === "overview" && (
           <>
             <h2>Overview</h2>
+
             <StatsCards
               sales={sales}
               products={products}
@@ -289,187 +326,179 @@ const Dashboard = () => {
         )}
 
         {activeView === "products" && (
+          <>
 
-  <>
+            <h2>Productos</h2>
 
-    <h2>Productos</h2>
+            <ProductForm
+              businessType={account.business_type}
+              onSubmit={handleCreate}
+              categories={categories}
+            />
 
-    <ProductForm
-      businessType={account.business_type}
-      onSubmit={handleCreate}
-      categories={categories}
-    />
+            <div className="products-toolbar">
 
-    {/* BUSCADOR */}
+              <input
+                className="search-input"
+                placeholder="Buscar por nombre o SKU..."
+                value={searchTerm}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value)
+                  setCurrentPage(1)
+                }}
+              />
 
-    <div className="products-toolbar">
-
-      <input
-        className="search-input"
-        placeholder="Buscar por nombre o SKU..."
-        value={searchTerm}
-        onChange={(e) => {
-          setSearchTerm(e.target.value)
-          setCurrentPage(1)
-        }}
-      />
-
-      <select
-        className="stock-filter"
-        value={stockFilter}
-        onChange={(e) => {
-          setStockFilter(e.target.value)
-          setCurrentPage(1)
-        }}
-      >
-        <option value="all">Todos</option>
-        <option value="low">Stock Bajo</option>
-        <option value="out">Sin Stock</option>
-      </select>
-
-    </div>
-
-    {/* CONTADOR PRODUCTOS */}
-
-    <p className="product-count">
-      {filteredProducts.length} productos
-    </p>
-
-    {/* TABLA PRODUCTOS */}
-
-    <table className="products-table">
-
-      <thead>
-        <tr>
-          <th>Producto</th>
-          <th>SKU</th>
-          <th>Categoría</th>
-          <th>Precio</th>
-          <th>Stock</th>
-          <th>Acciones</th>
-        </tr>
-      </thead>
-
-      <tbody>
-
-        {paginatedProducts.length === 0 && (
-          <tr>
-            <td colSpan="6" className="no-products">
-              No hay productos
-            </td>
-          </tr>
-        )}
-
-        {paginatedProducts.map(product => (
-
-          <tr
-            key={product.id}
-            onDoubleClick={() => {
-              setSelectedProduct(product)
-              setSellModalOpen(true)
-            }}
-          >
-
-            <td className="product-name">
-              {product.name}
-            </td>
-
-            <td>{product.sku}</td>
-
-            <td>
-              {
-                categories.find(c =>
-                  c.id === product.category_id
-                )?.name || "Sin categoría"
-              }
-            </td>
-
-            <td>
-              ${Number(product.base_price).toFixed(2)}
-            </td>
-
-            <td
-              className={
-                product.stock <= product.min_stock
-                  ? "low-stock"
-                  : ""
-              }
-            >
-              {product.stock}
-            </td>
-
-            <td className="table-actions">
-
-              <button
-                className="edit-btn"
-                onClick={() => {
-                  setEditingProduct(product)
-                  setEditModalOpen(true)
+              <select
+                className="stock-filter"
+                value={stockFilter}
+                onChange={(e) => {
+                  setStockFilter(e.target.value)
+                  setCurrentPage(1)
                 }}
               >
-                Editar
-              </button>
+
+                <option value="all">Todos</option>
+                <option value="low">Stock Bajo</option>
+                <option value="out">Sin Stock</option>
+
+              </select>
+
+            </div>
+
+            <p className="product-count">
+              {filteredProducts.length} productos
+            </p>
+
+            <table className="products-table">
+
+              <thead>
+                <tr>
+                  <th>Producto</th>
+                  <th>SKU</th>
+                  <th>Categoría</th>
+                  <th>Precio</th>
+                  <th>Stock</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+
+              <tbody>
+
+                {paginatedProducts.length === 0 && (
+                  <tr>
+                    <td colSpan="6" className="no-products">
+                      No hay productos
+                    </td>
+                  </tr>
+                )}
+
+                {paginatedProducts.map(product => (
+
+                  <tr
+                    key={product.id}
+                    onDoubleClick={() => {
+                      setSelectedProduct(product)
+                      setSellModalOpen(true)
+                    }}
+                  >
+
+                    <td className="product-name">
+                      {product.name}
+                    </td>
+
+                    <td>{product.sku}</td>
+
+                    <td>
+                      {
+                        categories.find(c =>
+                          c.id === product.category_id
+                        )?.name || "Sin categoría"
+                      }
+                    </td>
+
+                    <td>
+                      ${Number(product.base_price).toFixed(2)}
+                    </td>
+
+                    <td
+                      className={
+                        product.stock <= product.min_stock
+                          ? "low-stock"
+                          : ""
+                      }
+                    >
+                      {product.stock}
+                    </td>
+
+                    <td className="table-actions">
+
+                      <button
+                        className="edit-btn"
+                        onClick={() => {
+                          setEditingProduct(product)
+                          setEditModalOpen(true)
+                        }}
+                      >
+                        Editar
+                      </button>
+
+                      <button
+                        className="delete-btn"
+                        onClick={() =>
+                          handleDelete(product.id)
+                        }
+                      >
+                        Eliminar
+                      </button>
+
+                      <button
+                        className="sell-btn"
+                        onClick={() => {
+                          setSelectedProduct(product)
+                          setSellModalOpen(true)
+                        }}
+                      >
+                        Vender
+                      </button>
+
+                    </td>
+
+                  </tr>
+
+                ))}
+
+              </tbody>
+
+            </table>
+
+            <div className="pagination">
 
               <button
-                className="delete-btn"
+                disabled={currentPage === 1}
                 onClick={() =>
-                  handleDelete(product.id)
+                  setCurrentPage(prev => prev - 1)
                 }
               >
-                Eliminar
+                Anterior
               </button>
+
+              <span>
+                Página {currentPage} de {totalPages}
+              </span>
 
               <button
-                className="sell-btn"
-                onClick={() => {
-                  setSelectedProduct(product)
-                  setSellModalOpen(true)
-                }}
+                disabled={currentPage === totalPages}
+                onClick={() =>
+                  setCurrentPage(prev => prev + 1)
+                }
               >
-                Vender
+                Siguiente
               </button>
 
-            </td>
+            </div>
 
-          </tr>
-
-        ))}
-
-      </tbody>
-
-    </table>
-
-    {/* PAGINACION */}
-
-    <div className="pagination">
-
-      <button
-        disabled={currentPage === 1}
-        onClick={() =>
-          setCurrentPage(prev => prev - 1)
-        }
-      >
-        Anterior
-      </button>
-
-      <span>
-        Página {currentPage} de {totalPages}
-      </span>
-
-      <button
-        disabled={currentPage === totalPages}
-        onClick={() =>
-          setCurrentPage(prev => prev + 1)
-        }
-      >
-        Siguiente
-      </button>
-
-    </div>
-
-  </>
-
-)}
+          </>
+        )}
 
         {activeView === "sales" && (
           <>
@@ -564,7 +593,6 @@ const Dashboard = () => {
 
     </div>
   )
-
 }
 
 export default Dashboard
