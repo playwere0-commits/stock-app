@@ -32,8 +32,8 @@ const ProductForm = ({
 
   const [price, setPrice] = useState("")
   const [costPrice, setCostPrice] = useState("")
-  const [stock, setStock] = useState(0)
-  const [minStock, setMinStock] = useState(0)
+  const [stock, setStock] = useState("")
+  const [minStock, setMinStock] = useState("")
 
   // =============================
   // ATRIBUTOS DINÁMICOS
@@ -143,8 +143,8 @@ const ProductForm = ({
     setSupplier("")
     setPrice("")
     setCostPrice("")
-    setStock(0)
-    setMinStock(0)
+    setStock("")
+    setMinStock("")
 
     setColor("")
     setSize("")
@@ -230,6 +230,7 @@ const ProductForm = ({
       <input
         type="number"
         placeholder="Stock actual"
+        min="1"
         value={stock}
         onChange={e => setStock(e.target.value)}
       />
@@ -237,6 +238,7 @@ const ProductForm = ({
       <input
         type="number"
         placeholder="Stock mínimo"
+        min="1"
         value={minStock}
         onChange={e => setMinStock(e.target.value)}
       />
