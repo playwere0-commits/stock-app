@@ -2,6 +2,10 @@ import { useEffect, useState, useMemo } from "react"
 import { useAuth } from "../context/AuthContext"
 import { useNavigate } from "react-router-dom"
 
+import { useEffect, useState, useMemo } from "react"
+import { useAuth } from "../context/AuthContext"
+import { useNavigate } from "react-router-dom"
+
 import ProductForm from "../components/ProductForm"
 import SalesModal from "../components/SalesModal"
 import StatsCards from "../components/StatsCards"
@@ -72,6 +76,52 @@ const Dashboard = () => {
 
   const [startDate, setStartDate] = useState(today)
   const [endDate, setEndDate] = useState(today)
+
+
+  const getYesterday = () => {
+  const date = new Date()
+  date.setDate(date.getDate() - 1)
+
+  const offset = date.getTimezoneOffset()
+  const local = new Date(date.getTime() - offset * 60000)
+
+  return local.toISOString().split("T")[0]
+}
+
+const getWeekRange = () => {
+  const now = new Date()
+
+  const start = new Date(now)
+  start.setDate(now.getDate() - 6)
+
+  const offsetStart = start.getTimezoneOffset()
+  const offsetEnd = now.getTimezoneOffset()
+
+  const startLocal = new Date(start.getTime() - offsetStart * 60000)
+  const endLocal = new Date(now.getTime() - offsetEnd * 60000)
+
+  return {
+    start: startLocal.toISOString().split("T")[0],
+    end: endLocal.toISOString().split("T")[0]
+  }
+}
+
+const getMonthRange = () => {
+  const now = new Date()
+
+  const start = new Date(now.getFullYear(), now.getMonth(), 1)
+
+  const offsetStart = start.getTimezoneOffset()
+  const offsetEnd = now.getTimezoneOffset()
+
+  const startLocal = new Date(start.getTime() - offsetStart * 60000)
+  const endLocal = new Date(now.getTime() - offsetEnd * 60000)
+
+  return {
+    start: startLocal.toISOString().split("T")[0],
+    end: endLocal.toISOString().split("T")[0]
+  }
+}
 
   // =========================
   // CARGAR DATOS
@@ -145,11 +195,11 @@ const Dashboard = () => {
 
   useEffect(() => {
 
-    if (account) {
-      fetchSalesData(account.id, startDate, endDate)
-    }
+  if (account) {
+    fetchSalesData(account.id, startDate, endDate)
+  }
 
-  }, [startDate, endDate])
+}, [account, startDate, endDate])
 
   // =========================
   // FILTROS PRODUCTOS
@@ -243,23 +293,21 @@ const Dashboard = () => {
 
   const handleDelete = async (id) => {
 
-    if (!window.confirm("¿Eliminar producto?")) return
+  try {
 
-    try {
+    await deleteProduct(id)
 
-      await deleteProduct(id)
+    setProducts(prev =>
+      prev.filter(p => p.id !== id)
+    )
 
-      setProducts(prev =>
-        prev.filter(p => p.id !== id)
-      )
+  } catch {
 
-    } catch {
-
-      alert("Error eliminando producto")
-
-    }
+    alert("Error eliminando producto")
 
   }
+
+}
 
   // =========================
   // LOGOUT
@@ -443,15 +491,6 @@ const Dashboard = () => {
                       </button>
 
                       <button
-                        className="delete-btn"
-                        onClick={() =>
-                          handleDelete(product.id)
-                        }
-                      >
-                        Eliminar
-                      </button>
-
-                      <button
                         className="sell-btn"
                         onClick={() => {
                           setSelectedProduct(product)
@@ -505,42 +544,47 @@ const Dashboard = () => {
 
             <h2>Ventas</h2>
 
-            <div style={{ marginBottom: 10 }}>
+            <div style={{ marginBottom: 10, display: "flex", gap: "8px", flexWrap: "wrap" }}>
 
-              <button
-                onClick={() => {
+             <button
+               onClick={() => {
+                 const yesterday = getYesterday()
+                 setStartDate(yesterday)
+                 setEndDate(yesterday)
+               }}
+             >
+               Ayer
+             </button>
 
-                  const date = new Date()
-                  date.setDate(date.getDate() - 1)
+             <button
+               onClick={() => {
+                 const today = getLocalDate()
+                 setStartDate(today)
+                 setEndDate(today)
+               }}
+             >
+               Hoy
+             </button>
 
-                  const offset = date.getTimezoneOffset()
-                  const local = new Date(
-                    date.getTime() - offset * 60000
-                  )
-
-                  const yesterday =
-                    local.toISOString().split("T")[0]
-
-                  setStartDate(yesterday)
-                  setEndDate(yesterday)
-
-                }}
+             <button
+               onClick={() => {
+                 const { start, end } = getWeekRange()
+                 setStartDate(start)
+                 setEndDate(end)
+               }}
               >
-                Ayer
-              </button>
+               Últimos 7 días
+             </button>
 
-              <button
-                onClick={() => {
-
-                  const today = getLocalDate()
-
-                  setStartDate(today)
-                  setEndDate(today)
-
-                }}
-              >
-                Hoy
-              </button>
+             <button
+               onClick={() => {
+                 const { start, end } = getMonthRange()
+                 setStartDate(start)
+                 setEndDate(end)
+               }}
+             >
+               Este mes
+             </button>
 
             </div>
 
@@ -587,6 +631,7 @@ const Dashboard = () => {
         }}
         product={editingProduct}
         onSubmit={handleUpdate}
+        onDelete={handleDelete}
         businessType={account.business_type}
         categories={categories}
       />
@@ -596,3 +641,4 @@ const Dashboard = () => {
 }
 
 export default Dashboard
+
