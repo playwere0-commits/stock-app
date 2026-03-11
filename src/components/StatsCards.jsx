@@ -6,62 +6,85 @@ export default function StatsCards({ sales, products }) {
 
     if (!sales || !products) return null
 
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
+    let grossRevenue = 0
+    let totalCost = 0
+    let totalProfit = 0
 
-    let todayRevenue = 0
-    let totalRevenue = 0
+    const productTotals = {}
+    const productProfit = {}
 
-    let productTotals = {}
+    // MAPA DE PRODUCTOS (mucho más rápido)
+    const productMap = {}
+    products.forEach(p => {
+      productMap[p.id] = p
+    })
 
     sales.forEach(sale => {
 
-      const saleDate = new Date(sale.created_at)
+      const revenue = Number(sale.total_price || 0)
+      const cost = Number(sale.unit_cost || 0) * sale.quantity
+      const profit = Number(sale.profit || 0)
 
-      totalRevenue += Number(sale.total_price)
-
-      if (saleDate >= today) {
-        todayRevenue += Number(sale.total_price)
-      }
+      grossRevenue += revenue
+      totalCost += cost
+      totalProfit += profit
 
       productTotals[sale.product_id] =
         (productTotals[sale.product_id] || 0) + sale.quantity
 
+      productProfit[sale.product_id] =
+        (productProfit[sale.product_id] || 0) + profit
     })
 
-    // TOP PRODUCTOS
+    const margin =
+      grossRevenue > 0
+        ? ((totalProfit / grossRevenue) * 100).toFixed(1)
+        : 0
 
     const topProducts = Object.entries(productTotals)
       .sort((a, b) => b[1] - a[1])
       .slice(0, 5)
       .map(([productId, qty]) => {
 
-        const product = products.find(p => p.id === productId)
+        const product = productMap[productId]
 
         return {
           name: product?.name || "Producto eliminado",
           qty
         }
-
       })
 
-    // STOCK STATS
+    const mostProfitable = Object.entries(productProfit)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([productId, profit]) => {
 
-    const lowStock = products.filter(
+        const product = productMap[productId]
+
+        return {
+          name: product?.name || "Producto eliminado",
+          profit
+        }
+      })
+
+    const lowStockProducts = products.filter(
       p => p.stock <= p.min_stock && p.stock > 0
-    ).length
+    )
 
-    const outStock = products.filter(
+    const outStockProducts = products.filter(
       p => p.stock === 0
-    ).length
+    )
 
     return {
-      todayRevenue,
-      totalRevenue,
+      grossRevenue,
+      totalCost,
+      totalProfit,
+      margin,
       totalProducts: products.length,
-      lowStock,
-      outStock,
-      topProducts
+      lowStockProducts,
+      outStockProducts,
+      topProducts,
+      mostProfitable
     }
 
   }, [sales, products])
@@ -69,21 +92,24 @@ export default function StatsCards({ sales, products }) {
   if (!stats) return null
 
   return (
-
     <div>
-
-      {/* CARDS */}
 
       <div className="stats-grid">
 
         <div className="card">
-          <h4>💰 Ingresos Hoy</h4>
-          <p>${stats.todayRevenue.toFixed(2)}</p>
+          <h4>💰 Ingresos Brutos</h4>
+          <p>${stats.grossRevenue.toFixed(2)}</p>
         </div>
 
         <div className="card">
-          <h4>💰 Ingresos Totales</h4>
-          <p>${stats.totalRevenue.toFixed(2)}</p>
+          <h4>💸 Costos</h4>
+          <p>${stats.totalCost.toFixed(2)}</p>
+        </div>
+
+        <div className="card">
+          <h4>📈 Ganancia</h4>
+          <p>${stats.totalProfit.toFixed(2)}</p>
+          <small>Margen {stats.margin}%</small>
         </div>
 
         <div className="card">
@@ -91,47 +117,70 @@ export default function StatsCards({ sales, products }) {
           <p>{stats.totalProducts}</p>
         </div>
 
-        <div className="card">
-          <h4>⚠️ Stock Bajo</h4>
-          <p>{stats.lowStock}</p>
-        </div>
-
-        <div className="card">
-          <h4>🔴 Sin Stock</h4>
-          <p>{stats.outStock}</p>
-        </div>
-
       </div>
 
+      <div className="card" style={{ marginTop: 20 }}>
+        <h3>⚠️ Stock Bajo</h3>
 
-      {/* TOP PRODUCTOS */}
+        {stats.lowStockProducts.length === 0 ? (
+          <p>Todo en orden</p>
+        ) : (
+          <ul>
+            {stats.lowStockProducts.map(p => (
+              <li key={p.id}>
+                {p.name} — {p.stock} restantes
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
 
       <div className="card" style={{ marginTop: 20 }}>
+        <h3>🔴 Sin Stock</h3>
 
-        <h3>🔥 Top Productos Más Vendidos</h3>
+        {stats.outStockProducts.length === 0 ? (
+          <p>No hay productos agotados</p>
+        ) : (
+          <ul>
+            {stats.outStockProducts.map(p => (
+              <li key={p.id}>{p.name}</li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <div className="card" style={{ marginTop: 20 }}>
+        <h3>🔥 Productos Más Vendidos</h3>
 
         {stats.topProducts.length === 0 ? (
           <p>No hay ventas todavía</p>
         ) : (
-
           <ul>
-
             {stats.topProducts.map((p, i) => (
-
               <li key={i}>
                 {i + 1}. {p.name} — {p.qty} vendidos
               </li>
-
             ))}
-
           </ul>
-
         )}
+      </div>
 
+      <div className="card" style={{ marginTop: 20 }}>
+        <h3>💎 Productos Más Rentables</h3>
+
+        {stats.mostProfitable.length === 0 ? (
+          <p>No hay datos todavía</p>
+        ) : (
+          <ul>
+            {stats.mostProfitable.map((p, i) => (
+              <li key={i}>
+                {i + 1}. {p.name} — ${p.profit.toFixed(2)}
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
 
     </div>
-
   )
-
 }
