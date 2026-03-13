@@ -2,10 +2,6 @@ import { useEffect, useState, useMemo } from "react"
 import { useAuth } from "../context/AuthContext"
 import { useNavigate } from "react-router-dom"
 
-import { useEffect, useState, useMemo } from "react"
-import { useAuth } from "../context/AuthContext"
-import { useNavigate } from "react-router-dom"
-
 import ProductForm from "../components/ProductForm"
 import SalesModal from "../components/SalesModal"
 import StatsCards from "../components/StatsCards"
@@ -641,4 +637,5 @@ const getMonthRange = () => {
 }
 
 export default Dashboard
+
 
