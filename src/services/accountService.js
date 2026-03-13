@@ -6,9 +6,12 @@ export const getAccountByOwner = async (userId) => {
     .from("accounts")
     .select("*")
     .eq("owner_id", userId)
-    .single()
+    .maybeSingle()
 
-  if (error) throw error
+  if (error) {
+    console.error("Error obteniendo account:", error)
+    return null
+  }
 
   return data
 }
