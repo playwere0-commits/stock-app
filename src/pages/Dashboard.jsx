@@ -7,6 +7,7 @@ import SalesModal from "../components/SalesModal"
 import StatsCards from "../components/StatsCards"
 import SalesTable from "../components/SalesTable"
 import EditProductModal from "../components/EditProductModal"
+import { getCategoriesByAccount, createCategory } from "../services/categoryService"
 
 import { supabase } from "../lib/supabase"
 
@@ -45,6 +46,7 @@ const Dashboard = () => {
   const [searchTerm, setSearchTerm] = useState("")
   const [stockFilter, setStockFilter] = useState("all")
   const [currentPage, setCurrentPage] = useState(1)
+  const [categoryFilter, setCategoryFilter] = useState("all")
 
   const [editModalOpen, setEditModalOpen] = useState(false)
 
@@ -203,27 +205,48 @@ const getMonthRange = () => {
 
   const filteredProducts = useMemo(() => {
 
-    let result = [...products]
+  let result = [...products]
 
-    if (searchTerm) {
+  // BUSCAR POR NOMBRE
 
-      result = result.filter(p =>
-        p.name.toLowerCase().includes(searchTerm.toLowerCase())
-      )
+  if (searchTerm) {
 
-    }
+    result = result.filter(p =>
+      p.name.toLowerCase().includes(searchTerm.toLowerCase())
+    )
 
-    if (stockFilter === "low") {
-      result = result.filter(p => p.stock <= p.min_stock)
-    }
+  }
 
-    if (stockFilter === "out") {
-      result = result.filter(p => p.stock === 0)
-    }
+  // FILTRO POR CATEGORIA
 
-    return result
+  if (categoryFilter !== "all") {
+    result = result.filter(p => p.category_id === categoryFilter)
+  }
 
-  }, [products, searchTerm, stockFilter])
+  // FILTRO POR STOCK
+
+  if (stockFilter === "low") {
+    result = result.filter(p => p.stock <= p.min_stock)
+  }
+
+  if (stockFilter === "out") {
+    result = result.filter(p => p.stock === 0)
+  }
+
+  return result
+
+}, [products, searchTerm, stockFilter, categoryFilter])
+
+// nombre dinamico
+
+const selectedCategory = categories.find(
+  c => c.id === categoryFilter
+)
+
+const productsTitle =
+  categoryFilter === "all"
+    ? `Productos (${filteredProducts.length})`
+    : `Productos - ${selectedCategory?.name} (${filteredProducts.length})`
 
   // =========================
   // PAGINACION
@@ -261,6 +284,25 @@ const getMonthRange = () => {
     }
 
   }
+
+  const handleCreateCategory = async (name) => {
+
+  try {
+
+    const newCategory = await createCategory({
+      name,
+      account_id: account.id
+    })
+
+    setCategories(prev => [...prev, newCategory])
+
+  } catch {
+
+    alert("Error creando categoría")
+
+  }
+
+}
 
   const handleUpdate = async (data) => {
 
@@ -372,13 +414,13 @@ const getMonthRange = () => {
         {activeView === "products" && (
           <>
 
-            <h2>Productos</h2>
-
             <ProductForm
               businessType={account.business_type}
               onSubmit={handleCreate}
               categories={categories}
+              onCreateCategory={handleCreateCategory}
             />
+            <h2>{productsTitle}</h2>
 
             <div className="products-toolbar">
 
@@ -391,6 +433,28 @@ const getMonthRange = () => {
                   setCurrentPage(1)
                 }}
               />
+
+  {/* FILTRO CATEGORIA */}
+
+              <select
+                value={categoryFilter}
+                onChange={(e) => {
+                  setCategoryFilter(e.target.value)
+                  setCurrentPage(1)
+                }}
+              >
+
+                <option value="all">Todas las categorías</option>
+
+                {categories.map(cat => (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.name}
+                  </option>
+                ))}
+
+              </select>
+
+  {/* FILTRO STOCK */}
 
               <select
                 className="stock-filter"
@@ -408,10 +472,6 @@ const getMonthRange = () => {
               </select>
 
             </div>
-
-            <p className="product-count">
-              {filteredProducts.length} productos
-            </p>
 
             <table className="products-table">
 
@@ -483,7 +543,7 @@ const getMonthRange = () => {
                           setEditModalOpen(true)
                         }}
                       >
-                        Editar
+                        Detalles
                       </button>
 
                       <button
@@ -637,5 +697,4 @@ const getMonthRange = () => {
 }
 
 export default Dashboard
-
 
