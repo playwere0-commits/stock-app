@@ -74,6 +74,7 @@ const Dashboard = () => {
 
   const [startDate, setStartDate] = useState(today)
   const [endDate, setEndDate] = useState(today)
+  const [statsLabel, setStatsLabel] = useState("")
 
 
   const getYesterday = () => {
@@ -346,7 +347,13 @@ const productsTitle =
   }
 
 }
+// boton de stats
 
+useEffect(() => {
+  if (activeView !== "sales") {
+    setStatsLabel("")
+  }
+}, [activeView])
   // =========================
   // LOGOUT
   // =========================
@@ -607,6 +614,7 @@ const productsTitle =
                  const yesterday = getYesterday()
                  setStartDate(yesterday)
                  setEndDate(yesterday)
+                 setStatsLabel("ayer")
                }}
              >
                Ayer
@@ -617,6 +625,7 @@ const productsTitle =
                  const today = getLocalDate()
                  setStartDate(today)
                  setEndDate(today)
+                 setStatsLabel("hoy")
                }}
              >
                Hoy
@@ -627,8 +636,9 @@ const productsTitle =
                  const { start, end } = getWeekRange()
                  setStartDate(start)
                  setEndDate(end)
+                 setStatsLabel("últimos 7 días")
                }}
-              >
+             >
                Últimos 7 días
              </button>
 
@@ -637,10 +647,27 @@ const productsTitle =
                  const { start, end } = getMonthRange()
                  setStartDate(start)
                  setEndDate(end)
+                 setStatsLabel("este mes")
                }}
              >
                Este mes
              </button>
+
+             {statsLabel && (
+               <button
+               style={{
+                   background: "#3b82f6",
+                   color: "white",
+                   cursor: "pointer"
+                 }}
+                 onClick={() => {
+                   setActiveView("overview")
+                   setStatsLabel("")   // ← limpia el botón
+                 }}
+               >
+                 Ver estadísticas de {statsLabel}
+               </button>
+             )}
 
             </div>
 
@@ -697,4 +724,3 @@ const productsTitle =
 }
 
 export default Dashboard
-
