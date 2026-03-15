@@ -1,11 +1,11 @@
 import { useEffect, useState, useMemo } from "react"
 import { useAuth } from "../context/AuthContext"
 import { useNavigate } from "react-router-dom"
+import Overview from "../dashboard/Overview"
+import Products from "../dashboard/Products"
+import Sales from "../dashboard/Sales"
 
-import ProductForm from "../components/ProductForm"
 import SalesModal from "../components/SalesModal"
-import StatsCards from "../components/StatsCards"
-import SalesTable from "../components/SalesTable"
 import EditProductModal from "../components/EditProductModal"
 import { getCategoriesByAccount, createCategory } from "../services/categoryService"
 
@@ -212,11 +212,14 @@ const getMonthRange = () => {
 
   if (searchTerm) {
 
-    result = result.filter(p =>
-      p.name.toLowerCase().includes(searchTerm.toLowerCase())
-    )
+  const term = searchTerm.toLowerCase()
 
-  }
+  result = result.filter(p =>
+    p.name.toLowerCase().includes(term) ||
+    p.sku?.toLowerCase().includes(term)
+  )
+
+}
 
   // FILTRO POR CATEGORIA
 
@@ -407,295 +410,56 @@ useEffect(() => {
 
       <main className="content">
 
-        {activeView === "overview" && (
-          <>
-            <h2>Overview</h2>
+  {activeView === "overview" && (
+    <Overview
+      sales={sales}
+      products={products}
+    />
+  )}
 
-            <StatsCards
-              sales={sales}
-              products={products}
-            />
-          </>
-        )}
+  {activeView === "products" && (
+    <Products
+      account={account}
+      categories={categories}
+      productsTitle={productsTitle}
+      paginatedProducts={paginatedProducts}
+      searchTerm={searchTerm}
+      setSearchTerm={setSearchTerm}
+      stockFilter={stockFilter}
+      setStockFilter={setStockFilter}
+      categoryFilter={categoryFilter}
+      setCategoryFilter={setCategoryFilter}
+      currentPage={currentPage}
+      setCurrentPage={setCurrentPage}
+      totalPages={totalPages}
+      handleCreate={handleCreate}
+      handleCreateCategory={handleCreateCategory}
+      setEditingProduct={setEditingProduct}
+      setEditModalOpen={setEditModalOpen}
+      setSelectedProduct={setSelectedProduct}
+      setSellModalOpen={setSellModalOpen}
+    />
+  )}
 
-        {activeView === "products" && (
-          <>
+  {activeView === "sales" && (
+    <Sales
+      sales={sales}
+      products={products}
+      startDate={startDate}
+      endDate={endDate}
+      setStartDate={setStartDate}
+      setEndDate={setEndDate}
+      statsLabel={statsLabel}
+      setStatsLabel={setStatsLabel}
+      setActiveView={setActiveView}
+      getYesterday={getYesterday}
+      getLocalDate={getLocalDate}
+      getWeekRange={getWeekRange}
+      getMonthRange={getMonthRange}
+    />
+  )}
 
-            <ProductForm
-              businessType={account.business_type}
-              onSubmit={handleCreate}
-              categories={categories}
-              onCreateCategory={handleCreateCategory}
-            />
-            <h2>{productsTitle}</h2>
-
-            <div className="products-toolbar">
-
-              <input
-                className="search-input"
-                placeholder="Buscar por nombre o SKU..."
-                value={searchTerm}
-                onChange={(e) => {
-                  setSearchTerm(e.target.value)
-                  setCurrentPage(1)
-                }}
-              />
-
-  {/* FILTRO CATEGORIA */}
-
-              <select
-                value={categoryFilter}
-                onChange={(e) => {
-                  setCategoryFilter(e.target.value)
-                  setCurrentPage(1)
-                }}
-              >
-
-                <option value="all">Todas las categorías</option>
-
-                {categories.map(cat => (
-                  <option key={cat.id} value={cat.id}>
-                    {cat.name}
-                  </option>
-                ))}
-
-              </select>
-
-  {/* FILTRO STOCK */}
-
-              <select
-                className="stock-filter"
-                value={stockFilter}
-                onChange={(e) => {
-                  setStockFilter(e.target.value)
-                  setCurrentPage(1)
-                }}
-              >
-
-                <option value="all">Todos</option>
-                <option value="low">Stock Bajo</option>
-                <option value="out">Sin Stock</option>
-
-              </select>
-
-            </div>
-
-            <table className="products-table">
-
-              <thead>
-                <tr>
-                  <th>Producto</th>
-                  <th>SKU</th>
-                  <th>Categoría</th>
-                  <th>Precio</th>
-                  <th>Stock</th>
-                  <th>Acciones</th>
-                </tr>
-              </thead>
-
-              <tbody>
-
-                {paginatedProducts.length === 0 && (
-                  <tr>
-                    <td colSpan="6" className="no-products">
-                      No hay productos
-                    </td>
-                  </tr>
-                )}
-
-                {paginatedProducts.map(product => (
-
-                  <tr
-                    key={product.id}
-                    onDoubleClick={() => {
-                      setSelectedProduct(product)
-                      setSellModalOpen(true)
-                    }}
-                  >
-
-                    <td className="product-name">
-                      {product.name}
-                    </td>
-
-                    <td>{product.sku}</td>
-
-                    <td>
-                      {
-                        categories.find(c =>
-                          c.id === product.category_id
-                        )?.name || "Sin categoría"
-                      }
-                    </td>
-
-                    <td>
-                      ${Number(product.base_price).toFixed(2)}
-                    </td>
-
-                    <td
-                      className={
-                        product.stock <= product.min_stock
-                          ? "low-stock"
-                          : ""
-                      }
-                    >
-                      {product.stock}
-                    </td>
-
-                    <td className="table-actions">
-
-                      <button
-                        className="edit-btn"
-                        onClick={() => {
-                          setEditingProduct(product)
-                          setEditModalOpen(true)
-                        }}
-                      >
-                        Detalles
-                      </button>
-
-                      <button
-                        className="sell-btn"
-                        onClick={() => {
-                          setSelectedProduct(product)
-                          setSellModalOpen(true)
-                        }}
-                      >
-                        Vender
-                      </button>
-
-                    </td>
-
-                  </tr>
-
-                ))}
-
-              </tbody>
-
-            </table>
-
-            <div className="pagination">
-
-              <button
-                disabled={currentPage === 1}
-                onClick={() =>
-                  setCurrentPage(prev => prev - 1)
-                }
-              >
-                Anterior
-              </button>
-
-              <span>
-                Página {currentPage} de {totalPages}
-              </span>
-
-              <button
-                disabled={currentPage === totalPages}
-                onClick={() =>
-                  setCurrentPage(prev => prev + 1)
-                }
-              >
-                Siguiente
-              </button>
-
-            </div>
-
-          </>
-        )}
-
-        {activeView === "sales" && (
-          <>
-
-            <h2>Ventas</h2>
-
-            <div style={{ marginBottom: 10, display: "flex", gap: "8px", flexWrap: "wrap" }}>
-
-             <button
-               onClick={() => {
-                 const yesterday = getYesterday()
-                 setStartDate(yesterday)
-                 setEndDate(yesterday)
-                 setStatsLabel("ayer")
-               }}
-             >
-               Ayer
-             </button>
-
-             <button
-               onClick={() => {
-                 const today = getLocalDate()
-                 setStartDate(today)
-                 setEndDate(today)
-                 setStatsLabel("hoy")
-               }}
-             >
-               Hoy
-             </button>
-
-             <button
-               onClick={() => {
-                 const { start, end } = getWeekRange()
-                 setStartDate(start)
-                 setEndDate(end)
-                 setStatsLabel("últimos 7 días")
-               }}
-             >
-               Últimos 7 días
-             </button>
-
-             <button
-               onClick={() => {
-                 const { start, end } = getMonthRange()
-                 setStartDate(start)
-                 setEndDate(end)
-                 setStatsLabel("este mes")
-               }}
-             >
-               Este mes
-             </button>
-
-             {statsLabel && (
-               <button
-               style={{
-                   background: "#3b82f6",
-                   color: "white",
-                   cursor: "pointer"
-                 }}
-                 onClick={() => {
-                   setActiveView("overview")
-                   setStatsLabel("")   // ← limpia el botón
-                 }}
-               >
-                 Ver estadísticas de {statsLabel}
-               </button>
-             )}
-
-            </div>
-
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) =>
-                setStartDate(e.target.value)
-              }
-            />
-
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) =>
-                setEndDate(e.target.value)
-              }
-            />
-
-            <SalesTable
-              sales={sales}
-              products={products}
-            />
-
-          </>
-        )}
-
-      </main>
+</main>
 
       <SalesModal
         isOpen={sellModalOpen}
@@ -722,5 +486,4 @@ useEffect(() => {
     </div>
   )
 }
-
 export default Dashboard
