@@ -1,5 +1,17 @@
 import { useMemo } from "react"
 
+import {
+  BarChart,
+  Bar,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  CartesianGrid
+} from "recharts"
+
 export default function StatsCards({ sales, products }) {
 
   const stats = useMemo(() => {
@@ -75,16 +87,41 @@ export default function StatsCards({ sales, products }) {
       p => p.stock === 0
     )
 
+    // ==========================
+// DATOS PARA GRAFICO
+// ==========================
+
+const salesByDay = {}
+
+sales.forEach(sale => {
+
+  const date = new Date(sale.created_at).toLocaleDateString("es-AR", {
+    timeZone: "America/Argentina/Buenos_Aires",
+    day: "2-digit",
+    month: "2-digit"
+  })
+
+  const revenue = Number(sale.total_price || 0)
+
+  salesByDay[date] = (salesByDay[date] || 0) + revenue
+
+})
+
+const salesTrend = Object.entries(salesByDay).map(([date, total]) => ({
+  date,
+  total
+}))
+
     return {
       grossRevenue,
       totalCost,
       totalProfit,
       margin,
-      totalProducts: products.length,
       lowStockProducts,
       outStockProducts,
       topProducts,
-      mostProfitable
+      mostProfitable,
+      salesTrend
     }
 
   }, [sales, products])
@@ -94,30 +131,63 @@ export default function StatsCards({ sales, products }) {
   return (
     <div>
 
-      <div className="stats-grid">
+     <div className="stats-grid">
 
-        <div className="card">
+       <div className="card" style={{ marginTop: 20 }}>
+
+        <h3>📈 Tendencia de Ventas</h3>
+
+        {stats.salesTrend.length === 0 ? (
+          <p>No hay ventas en este período</p>
+        ) : (
+
+        <ResponsiveContainer width="100%" height={300}>
+
+           <LineChart data={stats.salesTrend}>
+
+            <CartesianGrid strokeDasharray="3 3" />
+
+              <XAxis dataKey="date" />
+
+                <YAxis />
+
+                <Tooltip />
+
+                <Line
+                  type="monotone"
+                  dataKey="total"
+                  stroke="#3b82f6"
+                  strokeWidth={3}
+                  dot={false}
+                />
+
+          </LineChart>
+
+         </ResponsiveContainer>
+
+          )}
+
+       </div>
+    </div>
+
+    <section className="sect-one">
+      <div className="card1">
+          <div>
           <h4>💰 Ingresos Brutos</h4>
           <p>${stats.grossRevenue.toFixed(2)}</p>
-        </div>
-
-        <div className="card">
+          </div>
+          
+          <div>
           <h4>💸 Costos</h4>
           <p>${stats.totalCost.toFixed(2)}</p>
-        </div>
+          </div>
 
-        <div className="card">
+          <div>
           <h4>📈 Ganancia</h4>
           <p>${stats.totalProfit.toFixed(2)}</p>
           <small>Margen {stats.margin}%</small>
-        </div>
-
-        <div className="card">
-          <h4>📦 Productos</h4>
-          <p>{stats.totalProducts}</p>
-        </div>
-
-      </div>
+          </div>
+       </div>
 
       <div className="card" style={{ marginTop: 20 }}>
         <h3>⚠️ Stock Bajo</h3>
@@ -148,6 +218,7 @@ export default function StatsCards({ sales, products }) {
           </ul>
         )}
       </div>
+    </section>
 
       <div className="card" style={{ marginTop: 20 }}>
         <h3>🔥 Productos Más Vendidos</h3>
@@ -155,29 +226,41 @@ export default function StatsCards({ sales, products }) {
         {stats.topProducts.length === 0 ? (
           <p>No hay ventas todavía</p>
         ) : (
-          <ul>
-            {stats.topProducts.map((p, i) => (
-              <li key={i}>
-                {i + 1}. {p.name} — {p.qty} vendidos
-              </li>
-            ))}
-          </ul>
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={stats.topProducts}>
+              <CartesianGrid strokeDasharray="3 3" />
+
+              <XAxis dataKey="name" />
+
+              <YAxis />
+
+              <Tooltip />
+
+              <Bar dataKey="qty" fill="#3b82f6" />
+            </BarChart>
+          </ResponsiveContainer>
         )}
       </div>
 
       <div className="card" style={{ marginTop: 20 }}>
         <h3>💎 Productos Más Rentables</h3>
 
-        {stats.mostProfitable.length === 0 ? (
+              {stats.mostProfitable.length === 0 ? (
           <p>No hay datos todavía</p>
         ) : (
-          <ul>
-            {stats.mostProfitable.map((p, i) => (
-              <li key={i}>
-                {i + 1}. {p.name} — ${p.profit.toFixed(2)}
-              </li>
-            ))}
-          </ul>
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={stats.mostProfitable}>
+              <CartesianGrid strokeDasharray="3 3" />
+
+              <XAxis dataKey="name" />
+
+              <YAxis />
+
+              <Tooltip />
+
+              <Bar dataKey="profit" fill="#3b82f6"/>
+            </BarChart>
+          </ResponsiveContainer>
         )}
       </div>
 
