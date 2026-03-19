@@ -40,6 +40,9 @@ body {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  position: sticky;
+  top: 0;
+  height: 100vh;
 }
 
 .content {
@@ -59,6 +62,37 @@ body {
   margin-bottom: 10px;
 }
 
+.card1 {
+  background: var(--card);
+  border: 1px solid var(--border);
+  padding: 5px;
+  border-radius: 8px;
+  margin-bottom: 10px;
+  display: flex;
+  justify-content: space-between;
+}
+
+.sect-one {
+  display: flex;
+  gap: 15px;
+  align-items: stretch;
+}
+
+/* cada card ocupa el mismo ancho */
+.sect-one > div {
+  flex: 1;
+}
+
+@media (max-width: 768px) {
+  .sect-one {
+    flex-direction: column;
+  }
+
+  .card1 {
+    flex-direction: column;
+  }
+}
+
 button {
   background: var(--primary);
   color: var(--notton);
@@ -71,6 +105,12 @@ button {
 
 button:hover {
   opacity: 0.9;
+}
+
+button:active {
+  transform: translateY(4px); /* Se mueve hacia abajo */
+  box-shadow: 0 0 0 #0056b3;
+  background-color: yellow;
 }
 
 input,
