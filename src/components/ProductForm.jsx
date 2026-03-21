@@ -5,7 +5,8 @@ const ProductForm = ({
   onSubmit,
   initialData,
   onCancel,
-  categories = []
+  categories = [],
+  onCreateCategory
 }) => {
 
   const isEditing = !!initialData
@@ -184,6 +185,8 @@ const ProductForm = ({
         onChange={e => setBarcode(e.target.value)}
       />
 
+      <div style={{ marginBottom: 10 }}>
+
       <select
         value={categoryId}
         onChange={e => setCategoryId(e.target.value)}
@@ -197,6 +200,24 @@ const ProductForm = ({
         ))}
 
       </select>
+
+      <button
+        type="button"
+        style={{ marginLeft: 10 }}
+        onClick={async () => {
+
+          const name = prompt("Nombre de la categoría")
+
+          if (!name) return
+
+          const newCategory = await onCreateCategory(name)
+
+        }}
+      >
+        + Nueva categoría
+      </button>
+
+</div>
 
       <input
         placeholder="Ubicación (ej: Estante A1)"
